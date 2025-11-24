@@ -1,3 +1,4 @@
+// server.js - Tambahkan error handling
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -8,7 +9,7 @@ const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// CORS Configuration - PERBAIKI INI
+// CORS Configuration
 app.use(cors({
     origin: "*",
     credentials: false,
@@ -18,7 +19,18 @@ app.use(cors({
 
 app.use(express.json());
 
-// Socket.IO setup dengan CORS yang benar - PERBAIKI INI
+// Error handling middleware
+app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid JSON payload'
+        });
+    }
+    next();
+});
+
+// Socket.IO setup
 const io = socketIo(server, {
     cors: {
         origin: "*",
@@ -26,12 +38,11 @@ const io = socketIo(server, {
         credentials: false,
         allowedHeaders: ["Content-Type"]
     },
-    transports: ['websocket', 'polling'] // TAMBAHKAN INI
+    transports: ['websocket', 'polling']
 });
 
 // CONNECT MongoDB Atlas
-mongoose
-    .connect(process.env.MONGO_URI || "mongodb://localhost:27017/raharpashopp")
+mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/raharpashopp")
     .then(() => console.log("🔥 Berhasil connect ke MongoDB Atlas!"))
     .catch((err) => console.error("❌ Gagal connect ke MongoDB:", err));
 
@@ -41,32 +52,28 @@ const userRoutes = require('./routes/userRoutes');
 // Use routes
 app.use('/api/users', userRoutes);
 
-// ROUTE TEST - PASTIKAN SAMA DENGAN YANG DI EXPECT FRONTEND
+// ROUTE TEST
 app.get("/", (req, res) => {
-    console.log("📨 Request from:", req.headers.origin);
-
     res.json({
         message: "Hello World + MongoDB Atlas 🌍",
         status: "Server is running!",
         timestamp: new Date().toISOString(),
-        client: req.headers.origin || "Unknown",
         database: "Connected ✅",
         socketIO: "Enabled ✅"
     });
 });
 
-// Health check dengan Socket.IO status
+// Health check
 app.get("/health", (req, res) => {
     res.status(200).json({
         status: "OK",
         database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
         socketIO: "Active",
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || "development"
+        timestamp: new Date().toISOString()
     });
 });
 
-// Socket.IO Connection Handling - PERBAIKI INI
+// Socket.IO Connection Handling
 io.on('connection', (socket) => {
     console.log('🔌 User connected:', socket.id);
 
@@ -88,39 +95,37 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Handle user login events
-    socket.on('user-login', (data) => {
-        console.log('User login via socket:', data);
-        // Broadcast ke semua client
-        io.emit('user-logged-in', data);
-    });
-
-    // Handle user logout events
-    socket.on('user-logout', (data) => {
-        console.log('User logout via socket:', data);
-        // Broadcast ke semua client
-        io.emit('user-logged-out', data);
-    });
-
     // Handle disconnect
     socket.on('disconnect', (reason) => {
         console.log('❌ User disconnected:', socket.id, 'Reason:', reason);
-    });
-
-    // Handle errors
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
     });
 });
 
 // Export io untuk digunakan di controller
 app.set('io', io);
 
-// RUN SERVER - GUNAKAN PORT YANG SAMA
+// Error handling untuk route tidak ditemukan
+app.use('*', (req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Route not found'
+    });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error('💥 Global error:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'production' ? {} : err.message
+    });
+});
+
+// RUN SERVER
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server berjalan di port ${PORT}`);
     console.log(`✅ CORS enabled for all domains`);
-    console.log(`🔌 Socket.IO ready with transports: websocket, polling`);
-    console.log(`🌐 Server URL: http://localhost:${PORT}`);
+    console.log(`🔌 Socket.IO ready`);
 });

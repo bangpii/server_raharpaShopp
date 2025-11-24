@@ -1,3 +1,4 @@
+// models/User.js
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -23,12 +24,18 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Update lastlogin sebelum save
+// Update lastlogin sebelum save - PERBAIKI INI
 userSchema.pre('save', function(next) {
-    if (this.isModified('loginstatus') && this.loginstatus) {
+    if (this.isModified('loginstatus') && this.loginstatus === true) {
         this.lastlogin = new Date();
     }
     next();
 });
+
+// Hapus middleware yang bermasalah jika ada
+// userSchema.pre('save', function(next) {
+//     this.lastlogin = new Date();
+//     next();
+// });
 
 module.exports = mongoose.model('User', userSchema);
