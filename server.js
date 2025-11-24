@@ -1,4 +1,3 @@
-// server.js - Tambahkan error handling
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -19,7 +18,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// Error handling middleware
+// Error handling middleware untuk JSON parsing
 app.use((error, req, res, next) => {
     if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
         return res.status(400).json({
@@ -104,11 +103,12 @@ io.on('connection', (socket) => {
 // Export io untuk digunakan di controller
 app.set('io', io);
 
-// Error handling untuk route tidak ditemukan
-app.use('*', (req, res) => {
+// Error handling untuk route tidak ditemukan - PERBAIKI INI
+app.use((req, res) => {
     res.status(404).json({
         success: false,
-        message: 'Route not found'
+        message: 'Route not found',
+        path: req.path
     });
 });
 
@@ -128,4 +128,5 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server berjalan di port ${PORT}`);
     console.log(`✅ CORS enabled for all domains`);
     console.log(`🔌 Socket.IO ready`);
+    console.log(`🌐 Test URL: http://localhost:${PORT}`);
 });
