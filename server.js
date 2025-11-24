@@ -36,9 +36,11 @@ mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/raharpashop
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Use routes
 app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ROUTE TEST
 app.get("/", (req, res) => {
