@@ -10,7 +10,7 @@ exports.loginUser = async (req, res) => {
 
         console.log('🔑 Login attempt for:', name);
 
-        // Validasi input
+        // Validasi input sederhana
         if (!name || name.trim().length === 0) {
             return res.status(400).json({
                 success: false,
@@ -32,9 +32,9 @@ exports.loginUser = async (req, res) => {
         const isNewUser = !user;
 
         if (user) {
-            // Update user yang sudah ada
+            // Update user yang sudah ada - handle lastlogin manual
             user.loginstatus = true;
-            user.lastlogin = new Date();
+            user.lastlogin = new Date(); // Set manual tanpa middleware
             await user.save();
             console.log('✅ Existing user updated:', user.name);
         } else {
@@ -42,7 +42,7 @@ exports.loginUser = async (req, res) => {
             user = new User({
                 name: trimmedName,
                 loginstatus: true,
-                lastlogin: new Date()
+                lastlogin: new Date() // Set manual tanpa middleware
             });
             await user.save();
             console.log('✅ New user created:', user.name);
@@ -130,10 +130,9 @@ exports.logoutUser = async (req, res) => {
         const user = await User.findByIdAndUpdate(
             userId, {
                 loginstatus: false,
-                lastlogin: new Date()
+                lastlogin: new Date() // Set manual tanpa middleware
             }, {
-                new: true,
-                runValidators: true
+                new: true
             }
         );
 

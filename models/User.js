@@ -24,17 +24,11 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Update lastlogin sebelum save - PERBAIKI INI
-userSchema.pre('save', function(next) {
-    if (this.isModified('loginstatus') && this.loginstatus === true) {
-        this.lastlogin = new Date();
-    }
-    next();
-});
-
-// Hapus middleware yang bermasalah jika ada
+// HAPUS SEMUA MIDDLEWARE PRE/POST UNTUK SEMENTARA
 // userSchema.pre('save', function(next) {
-//     this.lastlogin = new Date();
+//     if (this.isModified('loginstatus') && this.loginstatus === true) {
+//         this.lastlogin = new Date();
+//     }
 //     next();
 // });
 

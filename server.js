@@ -18,17 +18,6 @@ app.use(cors({
 
 app.use(express.json());
 
-// Error handling middleware untuk JSON parsing
-app.use((error, req, res, next) => {
-    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
-        return res.status(400).json({
-            success: false,
-            message: 'Invalid JSON payload'
-        });
-    }
-    next();
-});
-
 // Socket.IO setup
 const io = socketIo(server, {
     cors: {
@@ -103,30 +92,10 @@ io.on('connection', (socket) => {
 // Export io untuk digunakan di controller
 app.set('io', io);
 
-// Error handling untuk route tidak ditemukan - PERBAIKI INI
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Route not found',
-        path: req.path
-    });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-    console.error('💥 Global error:', err);
-    res.status(500).json({
-        success: false,
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'production' ? {} : err.message
-    });
-});
-
 // RUN SERVER
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server berjalan di port ${PORT}`);
     console.log(`✅ CORS enabled for all domains`);
     console.log(`🔌 Socket.IO ready`);
-    console.log(`🌐 Test URL: http://localhost:${PORT}`);
 });
