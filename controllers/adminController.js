@@ -1,9 +1,9 @@
-// controllers/adminController.js - FIXED
+// controllers/adminController.js - FIXED EXPORTS
 const Admin = require('../models/Admin');
 const mongoose = require('mongoose');
 
-// Login Admin - DIPERBAIKI
-exports.loginAdmin = async (req, res) => {
+// Login Admin
+const loginAdmin = async (req, res) => {
     try {
         const {
             email,
@@ -11,68 +11,31 @@ exports.loginAdmin = async (req, res) => {
         } = req.body;
 
         console.log('🔑 Admin login attempt for:', email);
-        console.log('📦 Request body:', req.body);
 
-        // Validasi input lebih ketat
+        // Validasi input
         if (!email || !password) {
-            console.log('❌ Missing email or password');
             return res.status(400).json({
                 success: false,
                 message: 'Email dan password harus diisi'
             });
         }
 
-        // Validasi format email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            console.log('❌ Invalid email format:', email);
-            return res.status(400).json({
-                success: false,
-                message: 'Format email tidak valid'
-            });
-        }
-
-        // Cek koneksi database
-        if (mongoose.connection.readyState !== 1) {
-            console.log('❌ Database not connected');
-            return res.status(500).json({
-                success: false,
-                message: 'Database tidak terhubung'
-            });
-        }
-
-        // Cari admin dengan logging lebih detail
-        const normalizedEmail = email.toLowerCase().trim();
-        console.log('🔍 Searching admin with email:', normalizedEmail);
-
+        // Cari admin berdasarkan email
         const admin = await Admin.findOne({
-            email: normalizedEmail
+            email: email.toLowerCase().trim()
         });
 
-        console.log('📊 Admin found:', admin);
-
         if (!admin) {
-            console.log('❌ Admin not found for email:', normalizedEmail);
+            console.log('❌ Admin not found:', email);
             return res.status(401).json({
                 success: false,
                 message: 'Email atau password salah'
             });
         }
 
-        // Check status aktif
-        if (!admin.isActive) {
-            console.log('❌ Admin account inactive:', normalizedEmail);
-            return res.status(401).json({
-                success: false,
-                message: 'Akun admin tidak aktif'
-            });
-        }
-
-        // Check password - TAMBAH VALIDASI KETAT
-        console.log('🔐 Password check - Input:', password, 'Stored:', admin.password);
-
+        // Check password
         if (password !== admin.password) {
-            console.log('❌ Password mismatch for admin:', normalizedEmail);
+            console.log('❌ Invalid password for admin:', email);
             return res.status(401).json({
                 success: false,
                 message: 'Email atau password salah'
@@ -98,11 +61,108 @@ exports.loginAdmin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('💥 Error admin login:', error);
+        console.error('❌ Error admin login:', error);
         res.status(500).json({
             success: false,
             message: 'Terjadi kesalahan server',
             error: error.message
         });
     }
+};
+
+// Get admin profile
+const getAdminProfile = async (req, res) => {
+    try {
+        const {
+            adminId
+        } = req.params;
+
+        // Validasi ObjectId
+        if (!mongoose.Types.ObjectId.isValid(adminId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID admin tidak valid'
+            });
+        }
+
+        const admin = await Admin.findById(adminId).select('-password');
+
+        if (!admin) {
+            return res.status(404).json({
+                success: false,
+                message: 'Admin tidak ditemukan'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: admin
+        });
+    } catch (error) {
+        console.error('Error get admin profile:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Terjadi kesalahan server',
+            error: error.message
+        });
+    }
+};
+
+// Update admin profile
+const updateAdminProfile = async (req, res) => {
+    try {
+        const {
+            adminId
+        } = req.params;
+        const {
+            name,
+            email
+        } = req.body;
+
+        // Validasi ObjectId
+        if (!mongoose.Types.ObjectId.isValid(adminId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'ID admin tidak valid'
+            });
+        }
+
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (email) updateData.email = email;
+
+        const admin = await Admin.findByIdAndUpdate(
+            adminId,
+            updateData, {
+                new: true
+            }
+        ).select('-password');
+
+        if (!admin) {
+            return res.status(404).json({
+                success: false,
+                message: 'Admin tidak ditemukan'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: admin
+        });
+    } catch (error) {
+        console.error('Error update admin profile:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Terjadi kesalahan server',
+            error: error.message
+        });
+    }
+};
+
+// Ekspor functions dengan benar
+module.exports = {
+    loginAdmin,
+    getAdminProfile,
+    updateAdminProfile
 };

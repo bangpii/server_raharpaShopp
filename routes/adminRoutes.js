@@ -1,4 +1,4 @@
-// routes/adminRoutes.js
+// routes/adminRoutes.js - FIXED
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
