@@ -1,9 +1,8 @@
-// controllers/adminController.js - FIXED EXPORTS
+// controllers/adminController.js
 const Admin = require('../models/Admin');
-const mongoose = require('mongoose');
 
 // Login Admin
-const loginAdmin = async (req, res) => {
+exports.loginAdmin = async (req, res) => {
     try {
         const {
             email,
@@ -33,7 +32,7 @@ const loginAdmin = async (req, res) => {
             });
         }
 
-        // Check password
+        // Check password (sementara plain text, bisa ditambah bcrypt nanti)
         if (password !== admin.password) {
             console.log('❌ Invalid password for admin:', email);
             return res.status(401).json({
@@ -71,19 +70,11 @@ const loginAdmin = async (req, res) => {
 };
 
 // Get admin profile
-const getAdminProfile = async (req, res) => {
+exports.getAdminProfile = async (req, res) => {
     try {
         const {
             adminId
         } = req.params;
-
-        // Validasi ObjectId
-        if (!mongoose.Types.ObjectId.isValid(adminId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'ID admin tidak valid'
-            });
-        }
 
         const admin = await Admin.findById(adminId).select('-password');
 
@@ -109,7 +100,7 @@ const getAdminProfile = async (req, res) => {
 };
 
 // Update admin profile
-const updateAdminProfile = async (req, res) => {
+exports.updateAdminProfile = async (req, res) => {
     try {
         const {
             adminId
@@ -119,17 +110,10 @@ const updateAdminProfile = async (req, res) => {
             email
         } = req.body;
 
-        // Validasi ObjectId
-        if (!mongoose.Types.ObjectId.isValid(adminId)) {
-            return res.status(400).json({
-                success: false,
-                message: 'ID admin tidak valid'
-            });
-        }
-
+        // Perbaikan: Gunakan optional chaining yang benar
         const updateData = {};
-        if (name) updateData.name = name;
-        if (email) updateData.email = email;
+        if (name) updateData.name = name.trim();
+        if (email) updateData.email = email.toLowerCase().trim();
 
         const admin = await Admin.findByIdAndUpdate(
             adminId,
@@ -158,11 +142,4 @@ const updateAdminProfile = async (req, res) => {
             error: error.message
         });
     }
-};
-
-// Ekspor functions dengan benar
-module.exports = {
-    loginAdmin,
-    getAdminProfile,
-    updateAdminProfile
 };

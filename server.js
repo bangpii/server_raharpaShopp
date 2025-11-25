@@ -1,4 +1,3 @@
-// server.js - FIXED dengan Express 4
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -9,22 +8,23 @@ const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// CORS Configuration - DIPERBAIKI
+// CORS Configuration
 app.use(cors({
-    origin: ["https://your-vercel-app.vercel.app", "http://localhost:5173"],
-    credentials: true,
+    origin: "*",
+    credentials: false,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept"]
 }));
 
 app.use(express.json());
 
-// Socket.IO setup - DIPERBAIKI
+// Socket.IO setup
 const io = socketIo(server, {
     cors: {
-        origin: ["https://your-vercel-app.vercel.app", "http://localhost:5173"],
-        methods: ["GET", "POST"],
-        credentials: true
+        origin: "*",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: false,
+        allowedHeaders: ["Content-Type"]
     },
     transports: ['websocket', 'polling']
 });
@@ -53,71 +53,35 @@ app.get("/", (req, res) => {
     });
 });
 
-// Health check dengan database status
-app.get("/health", async (req, res) => {
-    try {
-        const dbStatus = mongoose.connection.readyState === 1 ? "Connected" : "Disconnected";
-
-        res.status(200).json({
-            status: "OK",
-            database: dbStatus,
-            socketIO: "Active",
-            timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV || "development"
-        });
-    } catch (error) {
-        res.status(500).json({
-            status: "ERROR",
-            error: error.message
-        });
-    }
+// Health check
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: "OK",
+        database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
+        socketIO: "Active",
+        timestamp: new Date().toISOString()
+    });
 });
 
-// Socket.IO Connection Handling - UNTUK FEATURE CHAT
+// Socket.IO Connection Handling
 io.on('connection', (socket) => {
     console.log('🔌 User connected:', socket.id);
 
     // Test event
     socket.emit('welcome', {
-        message: 'Connected to Raharpa Shopp Socket.IO server',
-        socketId: socket.id,
-        timestamp: new Date().toISOString()
+        message: 'Connected to Socket.IO server',
+        socketId: socket.id
     });
 
-    // Join room untuk admin
-    socket.on('join-admin-room', (adminId) => {
-        socket.join(`admin_${adminId}`);
-        console.log(`Admin ${adminId} joined room admin_${adminId}`);
-
-        socket.emit('admin-room-joined', {
-            room: `admin_${adminId}`,
-            success: true,
-            message: 'Admin room joined successfully'
-        });
-    });
-
-    // Join room untuk user chat
+    // Join room berdasarkan user ID
     socket.on('join-user-room', (userId) => {
         socket.join(`user_${userId}`);
         console.log(`User ${userId} joined room user_${userId}`);
 
+        // Konfirmasi ke client
         socket.emit('room-joined', {
             room: `user_${userId}`,
             success: true
-        });
-    });
-
-    // Handle real-time notifications untuk admin
-    socket.on('admin-notification', (data) => {
-        const {
-            adminId,
-            message,
-            type
-        } = data;
-        io.to(`admin_${adminId}`).emit('new-notification', {
-            message,
-            type,
-            timestamp: new Date().toISOString()
         });
     });
 
@@ -130,29 +94,10 @@ io.on('connection', (socket) => {
 // Export io untuk digunakan di controller
 app.set('io', io);
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-    console.error('🚨 Server Error:', error);
-    res.status(500).json({
-        success: false,
-        message: 'Internal Server Error',
-        error: process.env.NODE_ENV === 'production' ? {} : error.message
-    });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-    res.status(404).json({
-        success: false,
-        message: 'Route not found'
-    });
-});
-
 // RUN SERVER
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server berjalan di port ${PORT}`);
-    console.log(`✅ CORS enabled for production and development`);
-    console.log(`🔌 Socket.IO ready for real-time features`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✅ CORS enabled for all domains`);
+    console.log(`🔌 Socket.IO ready`);
 });
