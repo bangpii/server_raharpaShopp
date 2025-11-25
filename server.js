@@ -8,29 +8,42 @@ const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// CORS Configuration
+// Dapatkan domain frontend dari environment variable
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://raharpa-thrift.vercel.app";
+
+console.log('🔧 Frontend URL:', FRONTEND_URL);
+
+// CORS Configuration - Lebih spesifik
 app.use(cors({
-    origin: ["https://raharpa-thrift.vercel.app", "http://localhost:5173"],
-    credentials: false,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept"]
+    origin: [
+        FRONTEND_URL,
+        "http://localhost:5173",
+        "https://raharpa-thrift.vercel.app"
+    ],
+    credentials: true, // Ubah ke true
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"]
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 app.use(express.json());
 
-// Socket.IO setup
+// Socket.IO setup dengan konfigurasi yang lebih baik
 const io = socketIo(server, {
     cors: {
-        origin: ["https://raharpa-thrift.vercel.app", "http://localhost:5173"],
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        credentials: false,
+        origin: FRONTEND_URL,
+        methods: ["GET", "POST"],
+        credentials: true,
         allowedHeaders: ["Content-Type"]
     },
     transports: ['websocket', 'polling']
 });
 
 // CONNECT MongoDB Atlas
-mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/raharpashopp")
+const MONGODB_URI = process.env.MONGO_URI || "mongodb://localhost:27017/raharpashopp";
+mongoose.connect(MONGODB_URI)
     .then(() => console.log("🔥 Berhasil connect ke MongoDB Atlas!"))
     .catch((err) => console.error("❌ Gagal connect ke MongoDB:", err));
 
@@ -42,24 +55,28 @@ const adminRoutes = require('./routes/adminRoutes');
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 
-// ROUTE TEST
+// ROUTE TEST dengan info lengkap
 app.get("/", (req, res) => {
     res.json({
-        message: "Hello World + MongoDB Atlas 🌍",
+        message: "Server Raharpa Shopp Production",
         status: "Server is running!",
         timestamp: new Date().toISOString(),
-        database: "Connected ✅",
-        socketIO: "Enabled ✅"
+        database: mongoose.connection.readyState === 1 ? "Connected ✅" : "Disconnected ❌",
+        socketIO: "Enabled ✅",
+        frontendUrl: FRONTEND_URL,
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
-// Health check
+// Health check yang lebih detail
 app.get("/health", (req, res) => {
     res.status(200).json({
         status: "OK",
         database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
         socketIO: "Active",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        server: "Railway",
+        frontend: FRONTEND_URL
     });
 });
 
@@ -69,8 +86,9 @@ io.on('connection', (socket) => {
 
     // Test event
     socket.emit('welcome', {
-        message: 'Connected to Socket.IO server',
-        socketId: socket.id
+        message: 'Connected to Socket.IO server - Production',
+        socketId: socket.id,
+        timestamp: new Date().toISOString()
     });
 
     // Join room berdasarkan user ID
@@ -94,10 +112,30 @@ io.on('connection', (socket) => {
 // Export io untuk digunakan di controller
 app.set('io', io);
 
+// Error handling middleware
+app.use((error, req, res, next) => {
+    console.error('💥 Server Error:', error);
+    res.status(500).json({
+        success: false,
+        message: 'Internal Server Error',
+        error: process.env.NODE_ENV === 'production' ? {} : error.stack
+    });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'Route not found'
+    });
+});
+
 // RUN SERVER
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server berjalan di port ${PORT}`);
-    console.log(`✅ CORS enabled for all domains`);
+    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🎯 Frontend URL: ${FRONTEND_URL}`);
+    console.log(`✅ CORS enabled for: ${FRONTEND_URL}`);
     console.log(`🔌 Socket.IO ready`);
 });
