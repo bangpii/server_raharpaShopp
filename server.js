@@ -30,7 +30,7 @@ app.options('*', cors());
 
 app.use(express.json());
 
-// Socket.IO setup dengan konfigurasi yang lebih baik
+// Socket.IO setup dengan konfigurasi yang lebih baikk
 const io = socketIo(server, {
     cors: {
         origin: FRONTEND_URL,
