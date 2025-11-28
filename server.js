@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 // Dapatkan domain frontend dari environment variable
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://raharpashopp.vercel.app/";
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://raharpa-shopp.vercel.app/";
 
 console.log('🔧 Frontend URL:', FRONTEND_URL);
 
@@ -18,7 +18,7 @@ app.use(cors({
     origin: [
         FRONTEND_URL,
         "http://localhost:5173",
-        "https://raharpashopp.vercel.app/"
+        "https://raharpa-shopp.vercel.app/"
     ],
     credentials: true, // Ubah ke true
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
