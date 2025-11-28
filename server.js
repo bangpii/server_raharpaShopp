@@ -1,3 +1,4 @@
+// server.js - Pastikan ini ada
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -8,29 +9,26 @@ const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// Dapatkan domain frontend dari environment variable
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://raharpa-shopp.vercel.app/";
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://raharpa-shopp.vercel.app";
 
 console.log('🔧 Frontend URL:', FRONTEND_URL);
 
-// CORS Configuration - Lebih spesifik
+// CORS Configuration
 app.use(cors({
     origin: [
         FRONTEND_URL,
         "http://localhost:5173",
-        "https://raharpa-shopp.vercel.app/"
+        "https://raharpa-shopp.vercel.app"
     ],
-    credentials: true, // Ubah ke true
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"]
 }));
 
-// Handle preflight requests
 app.options('*', cors());
-
 app.use(express.json());
 
-// Socket.IO setup dengan konfigurasi yang lebih baikk
+// Socket.IO setup
 const io = socketIo(server, {
     cors: {
         origin: FRONTEND_URL,
@@ -47,15 +45,17 @@ mongoose.connect(MONGODB_URI)
     .then(() => console.log("🔥 Berhasil connect ke MongoDB Atlas!"))
     .catch((err) => console.error("❌ Gagal connect ke MongoDB:", err));
 
-// Import routes
+// Import routes - PASTIKAN INI ADA
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const chatRoutes = require('./routes/chatRoutes'); // INI HARUS ADA
 
-// Use routes
+// Use routes - PASTIKAN INI DIPANGGIL
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/chat', chatRoutes); // INI HARUS ADA
 
-// ROUTE TEST dengan info lengkap
+// ROUTE TEST
 app.get("/", (req, res) => {
     res.json({
         message: "Server Raharpa Shopp Production",
@@ -68,7 +68,7 @@ app.get("/", (req, res) => {
     });
 });
 
-// Health check yang lebih detail
+// Health check
 app.get("/health", (req, res) => {
     res.status(200).json({
         status: "OK",
@@ -80,7 +80,7 @@ app.get("/health", (req, res) => {
     });
 });
 
-// Socket.IO Connection Handling
+// Socket.IO Connection Handling - DIPERBAIKI
 io.on('connection', (socket) => {
     console.log('🔌 User connected:', socket.id);
 
@@ -91,40 +91,142 @@ io.on('connection', (socket) => {
         timestamp: new Date().toISOString()
     });
 
-    // Join room berdasarkan user ID
+    // Join user room
     socket.on('join-user-room', (userId) => {
         socket.join(`user_${userId}`);
-        console.log(`User ${userId} joined room user_${userId}`);
+        console.log(`👤 User ${userId} joined room user_${userId}`);
 
-        // Konfirmasi ke client
-        socket.emit('room-joined', {
-            room: `user_${userId}`,
-            success: true
+        // Update status untuk admin
+        socket.to('admin_room').emit('user-online', {
+            userId: userId,
+            isOnline: true,
+            timestamp: new Date()
         });
     });
 
-    // Handle custom events untuk AkunUsers
-    socket.on('user-added', (userData) => {
-        console.log('📝 User added via socket:', userData);
-        // Broadcast ke semua client
-        io.emit('users-updated', { action: 'added', user: userData });
+    // Join admin room
+    socket.on('join-admin-room', () => {
+        socket.join('admin_room');
+        console.log('🛠️ Admin joined admin room');
+
+        // Konfirmasi ke admin
+        socket.emit('admin-joined', {
+            message: 'Berhasil join admin room',
+            timestamp: new Date()
+        });
     });
 
-    socket.on('user-updated', (userData) => {
-        console.log('✏️ User updated via socket:', userData);
-        // Broadcast ke semua client
-        io.emit('users-updated', { action: 'updated', user: userData });
+    // Handle new message - DIPERBAIKI
+    socket.on('send-message', async (data) => {
+        try {
+            console.log('📨 Received message via socket:', data);
+
+            const {
+                chatId,
+                userId,
+                message,
+                sender
+            } = data;
+
+            // Broadcast ke admin room
+            socket.to('admin_room').emit('new-message', {
+                chatId,
+                userId,
+                message,
+                sender,
+                timestamp: new Date(),
+                socketId: socket.id
+            });
+
+            // Juga kirim ke user specific room
+            socket.to(`user_${userId}`).emit('new-message', {
+                chatId,
+                userId,
+                message,
+                sender,
+                timestamp: new Date(),
+                socketId: socket.id
+            });
+
+            // Konfirmasi ke pengirim
+            socket.emit('message-sent', {
+                success: true,
+                message: 'Pesan berhasil dikirim',
+                timestamp: new Date()
+            });
+
+        } catch (error) {
+            console.error('❌ Error handling send-message:', error);
+            socket.emit('message-error', {
+                error: 'Gagal mengirim pesan',
+                details: error.message
+            });
+        }
     });
 
-    socket.on('user-deleted', (userData) => {
-        console.log('🗑️ User deleted via socket:', userData);
-        // Broadcast ke semua client
-        io.emit('users-updated', { action: 'deleted', user: userData });
+    // Handle typing indicator - DIPERBAIKI
+    socket.on('typing-start', (data) => {
+        console.log('⌨️ Typing start:', data);
+        const {
+            userId,
+            chatId
+        } = data;
+
+        if (userId === 'admin') {
+            // Admin typing - kirim ke user
+            socket.to(`user_${chatId}`).emit('user-typing', {
+                userId: 'admin',
+                isTyping: true,
+                chatId
+            });
+        } else {
+            // User typing - kirim ke admin
+            socket.to('admin_room').emit('user-typing', {
+                userId,
+                isTyping: true,
+                chatId
+            });
+        }
+    });
+
+    socket.on('typing-stop', (data) => {
+        console.log('💤 Typing stop:', data);
+        const {
+            userId,
+            chatId
+        } = data;
+
+        if (userId === 'admin') {
+            // Admin stop typing - kirim ke user
+            socket.to(`user_${chatId}`).emit('user-typing', {
+                userId: 'admin',
+                isTyping: false,
+                chatId
+            });
+        } else {
+            // User stop typing - kirim ke admin
+            socket.to('admin_room').emit('user-typing', {
+                userId,
+                isTyping: false,
+                chatId
+            });
+        }
     });
 
     // Handle disconnect
     socket.on('disconnect', (reason) => {
         console.log('❌ User disconnected:', socket.id, 'Reason:', reason);
+
+        // Notify admin tentang user offline
+        socket.to('admin_room').emit('user-offline', {
+            socketId: socket.id,
+            timestamp: new Date()
+        });
+    });
+
+    // Error handling
+    socket.on('error', (error) => {
+        console.error('💥 Socket error:', error);
     });
 });
 
@@ -145,7 +247,8 @@ app.use((error, req, res, next) => {
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
-        message: 'Route not found'
+        message: 'Route not found',
+        path: req.originalUrl
     });
 });
 
