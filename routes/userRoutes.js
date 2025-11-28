@@ -23,4 +23,14 @@ router.get('/:userId', userController.getUserById);
 // @access  Public
 router.put('/logout/:userId', userController.logoutUser);
 
+// @route   PUT /api/users/:userId
+// @desc    Update user data
+// @access  Public
+router.put('/:userId', userController.updateUser);
+
+// @route   DELETE /api/users/:userId
+// @desc    Delete user
+// @access  Public
+router.delete('/:userId', userController.deleteUser);
+
 module.exports = router;

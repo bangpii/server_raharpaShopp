@@ -103,6 +103,25 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Handle custom events untuk AkunUsers
+    socket.on('user-added', (userData) => {
+        console.log('📝 User added via socket:', userData);
+        // Broadcast ke semua client
+        io.emit('users-updated', { action: 'added', user: userData });
+    });
+
+    socket.on('user-updated', (userData) => {
+        console.log('✏️ User updated via socket:', userData);
+        // Broadcast ke semua client
+        io.emit('users-updated', { action: 'updated', user: userData });
+    });
+
+    socket.on('user-deleted', (userData) => {
+        console.log('🗑️ User deleted via socket:', userData);
+        // Broadcast ke semua client
+        io.emit('users-updated', { action: 'deleted', user: userData });
+    });
+
     // Handle disconnect
     socket.on('disconnect', (reason) => {
         console.log('❌ User disconnected:', socket.id, 'Reason:', reason);
