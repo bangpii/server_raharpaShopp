@@ -26,7 +26,15 @@ app.use(cors({
 }));
 
 app.options('*', cors());
-app.use(express.json());
+
+// ✅ PERBAIKAN DI SINI: TAMBAH LIMIT 100MB
+app.use(express.json({
+    limit: '100mb' // Dari 100kb jadi 100mb
+}));
+app.use(express.urlencoded({
+    extended: true,
+    limit: '100mb' // Dari 100kb jadi 100mb
+}));
 
 // Socket.IO setup
 const io = socketIo(server, {
@@ -301,8 +309,17 @@ io.on('connection', (socket) => {
 // Export io untuk digunakan di controller
 app.set('io', io);
 
-// Error handling middleware
+// Error handling middleware - TAMBAH HANDLING UNTUK PAYLOAD TOO LARGE
 app.use((error, req, res, next) => {
+    // Handle payload too large error specifically
+    if (error.type === 'entity.too.large') {
+        return res.status(413).json({
+            success: false,
+            message: 'File terlalu besar. Maksimal 100MB',
+            error: 'Payload too large'
+        });
+    }
+
     console.error('💥 Server Error:', error);
     res.status(500).json({
         success: false,
@@ -328,4 +345,5 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`🎯 Frontend URL: ${FRONTEND_URL}`);
     console.log(`✅ CORS enabled for: ${FRONTEND_URL}`);
     console.log(`🔌 Socket.IO ready`);
+    console.log(`📦 Body size limit: 100MB`); // Tambah log untuk konfirmasi
 });
