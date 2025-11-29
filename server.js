@@ -49,11 +49,13 @@ mongoose.connect(MONGODB_URI)
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const chatRoutes = require('./routes/chatRoutes'); // INI HARUS ADA
+const itemRoutes = require('./routes/itemRoutes');
 
 // Use routes - PASTIKAN INI DIPANGGIL
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes); // INI HARUS ADA
+app.use('/api/items', itemRoutes);
 app.use('/uploads', express.static('uploads'));
 
 // ROUTE TEST
