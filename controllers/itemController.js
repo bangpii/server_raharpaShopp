@@ -63,7 +63,7 @@ exports.addItem = async (req, res) => {
         console.log('➕ Add item request:', {
             code,
             price,
-            image
+            image: image ? `Base64 image (${image.length} chars)` : 'No image'
         });
 
         // Validasi input
@@ -148,7 +148,7 @@ exports.updateItem = async (req, res) => {
         console.log('✏️ Update item request:', itemId, {
             code,
             price,
-            image
+            image: image ? `Base64 image (${image.length} chars)` : 'No image'
         });
 
         const item = await Item.findByIdAndUpdate(
