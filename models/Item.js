@@ -3,13 +3,14 @@ const mongoose = require('mongoose');
 const itemSchema = new mongoose.Schema({
     code: {
         type: String,
-        required: true,
+        required: [true, 'Code item harus diisi'],
         trim: true,
         unique: true
     },
     price: {
         type: Number,
-        required: true
+        required: [true, 'Harga harus diisi'],
+        min: [1, 'Harga harus lebih dari 0']
     },
     image: {
         type: String,
@@ -17,7 +18,10 @@ const itemSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Tersedia', 'Sold Out'],
+        enum: {
+            values: ['Tersedia', 'Sold Out'],
+            message: 'Status harus Tersedia atau Sold Out'
+        },
         default: 'Tersedia'
     },
     date: {
@@ -35,6 +39,17 @@ const itemSchema = new mongoose.Schema({
     }
 }, {
     timestamps: true
+});
+
+// Index untuk performa
+itemSchema.index({
+    code: 1
+});
+itemSchema.index({
+    status: 1
+});
+itemSchema.index({
+    date: -1
 });
 
 module.exports = mongoose.model('Item', itemSchema);
