@@ -1,4 +1,4 @@
-// server.js - Pastikan ini ada
+// server.js - Production
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -45,16 +45,16 @@ mongoose.connect(MONGODB_URI)
     .then(() => console.log("🔥 Berhasil connect ke MongoDB Atlas!"))
     .catch((err) => console.error("❌ Gagal connect ke MongoDB:", err));
 
-// Import routes - PASTIKAN INI ADA
+// Import routes
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const chatRoutes = require('./routes/chatRoutes'); // INI HARUS ADA
+const chatRoutes = require('./routes/chatRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 
-// Use routes - PASTIKAN INI DIPANGGIL
+// Use routes
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/chat', chatRoutes); // INI HARUS ADA
+app.use('/api/chat', chatRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/uploads', express.static('uploads'));
 
@@ -83,7 +83,7 @@ app.get("/health", (req, res) => {
     });
 });
 
-// Socket.IO Connection Handling - DIPERBAIKI
+// Socket.IO Connection Handling
 io.on('connection', (socket) => {
     console.log('🔌 User connected:', socket.id);
 
@@ -119,7 +119,19 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Handle new message - DIPERBAIKI
+    // Join admin room khusus untuk items
+    socket.on('join-admin-room-items', () => {
+        socket.join('admin_room');
+        console.log('📦 Admin joined admin room for items');
+
+        // Konfirmasi ke admin
+        socket.emit('admin-joined-items', {
+            message: 'Berhasil join admin room untuk items',
+            timestamp: new Date()
+        });
+    });
+
+    // Handle new message
     socket.on('send-message', async (data) => {
         try {
             console.log('📨 Received message via socket:', data);
@@ -167,7 +179,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle typing indicator - DIPERBAIKI
+    // Handle typing indicator
     socket.on('typing-start', (data) => {
         console.log('⌨️ Typing start:', data);
         const {
@@ -214,6 +226,59 @@ io.on('connection', (socket) => {
                 chatId
             });
         }
+    });
+
+    // Handle item events dari client
+    socket.on('item-added', (data) => {
+        console.log('➕ Item added via socket:', data);
+        // Broadcast ke semua admin
+        socket.to('admin_room').emit('item-added', data);
+
+        // Emit items-updated untuk refresh data real-time
+        io.emit('items-updated', {
+            action: 'added',
+            item: data,
+            timestamp: new Date()
+        });
+    });
+
+    socket.on('item-updated', (data) => {
+        console.log('✏️ Item updated via socket:', data);
+        // Broadcast ke semua admin
+        socket.to('admin_room').emit('item-updated', data);
+
+        // Emit items-updated untuk refresh data real-time
+        io.emit('items-updated', {
+            action: 'updated',
+            item: data,
+            timestamp: new Date()
+        });
+    });
+
+    socket.on('item-deleted', (data) => {
+        console.log('🗑️ Item deleted via socket:', data);
+        // Broadcast ke semua admin
+        socket.to('admin_room').emit('item-deleted', data);
+
+        // Emit items-updated untuk refresh data real-time
+        io.emit('items-updated', {
+            action: 'deleted',
+            itemId: data.itemId,
+            timestamp: new Date()
+        });
+    });
+
+    socket.on('item-sent', (data) => {
+        console.log('📤 Item sent via socket:', data);
+        // Broadcast ke semua admin
+        socket.to('admin_room').emit('item-sent', data);
+
+        // Emit items-updated untuk refresh data real-time
+        io.emit('items-updated', {
+            action: 'sent',
+            item: data,
+            timestamp: new Date()
+        });
     });
 
     // Handle disconnect
