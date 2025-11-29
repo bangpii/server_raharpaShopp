@@ -1,4 +1,4 @@
-// models/Chat.js
+// models/Chat.js - DIPERBAIKI DENGAN FIELD FILE
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
@@ -27,6 +27,14 @@ const messageSchema = new mongoose.Schema({
     },
     fileName: {
         type: String,
+        default: null
+    },
+    fileType: {
+        type: String,
+        default: null
+    },
+    fileSize: {
+        type: Number,
         default: null
     }
 });

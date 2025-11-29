@@ -54,6 +54,7 @@ const chatRoutes = require('./routes/chatRoutes'); // INI HARUS ADA
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes); // INI HARUS ADA
+app.use('/uploads', express.static('uploads'));
 
 // ROUTE TEST
 app.get("/", (req, res) => {

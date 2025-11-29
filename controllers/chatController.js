@@ -1,6 +1,43 @@
-// controllers/chatController.js - DIPERBAIKI LENGKAP
+// controllers/chatController.js - DITAMBAHKAN FITUR UPLOAD
 const Chat = require('../models/Chat');
 const User = require('../models/User');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Konfigurasi multer untuk upload file
+const storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        const uploadDir = 'uploads/chat';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, {
+                recursive: true
+            });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function(req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'chat-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const fileFilter = (req, file, cb) => {
+    // Hanya izinkan file gambar
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Hanya file gambar yang diizinkan!'), false);
+    }
+};
+
+exports.upload = multer({
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB
+    }
+});
 
 // Get semua chat untuk admin
 exports.getAllChats = async (req, res) => {
@@ -108,7 +145,10 @@ exports.getOrCreateUserChat = async (req, res) => {
             sender: msg.sender,
             message: msg.message,
             time: formatTime(msg.timestamp),
-            read: msg.read || false
+            read: msg.read || false,
+            fileUrl: msg.fileUrl || null,
+            fileName: msg.fileName || null,
+            fileType: msg.fileType || null
         }));
 
         res.status(200).json({
@@ -185,7 +225,8 @@ exports.getChatMessages = async (req, res) => {
             time: formatTime(msg.timestamp),
             read: msg.read || false,
             fileUrl: msg.fileUrl || null,
-            fileName: msg.fileName || null
+            fileName: msg.fileName || null,
+            fileType: msg.fileType || null
         }));
 
         console.log(`📨 Found ${formattedMessages.length} messages for chat: ${chatId}`);
@@ -209,7 +250,7 @@ exports.getChatMessages = async (req, res) => {
     }
 };
 
-// Send message
+// Send message dengan support file upload
 exports.sendMessage = async (req, res) => {
     try {
         const {
@@ -220,15 +261,29 @@ exports.sendMessage = async (req, res) => {
             message,
             sender,
             fileUrl,
-            fileName
+            fileName,
+            fileType
         } = req.body;
 
         console.log(`📤 Sending message - Chat: ${chatId}, User: ${userId}, Sender: ${sender}`);
 
-        if (!message || !message.trim()) {
+        // Handle file upload
+        let finalFileUrl = fileUrl;
+        let finalFileName = fileName;
+        let finalFileType = fileType;
+
+        if (req.file) {
+            finalFileUrl = `/uploads/chat/${req.file.filename}`;
+            finalFileName = req.file.originalname;
+            finalFileType = req.file.mimetype;
+            console.log(`📎 File uploaded: ${finalFileName}`);
+        }
+
+        // Jika tidak ada message dan tidak ada file, return error
+        if ((!message || !message.trim()) && !req.file) {
             return res.status(400).json({
                 success: false,
-                message: 'Pesan tidak boleh kosong'
+                message: 'Pesan atau file tidak boleh kosong'
             });
         }
 
@@ -263,18 +318,36 @@ exports.sendMessage = async (req, res) => {
             });
         }
 
+        // Buat message content
+        let messageContent = message ? message.trim() : '';
+        if (req.file) {
+            if (messageContent) {
+                messageContent += ` [FILE: ${finalFileName}]`;
+            } else {
+                messageContent = `[Mengirim file: ${finalFileName}]`;
+            }
+        }
+
         // Tambahkan message baru
         const newMessage = {
             sender: sender || 'user',
-            message: message.trim(),
+            message: messageContent,
             timestamp: new Date(),
             read: sender === 'admin',
-            fileUrl: fileUrl || null,
-            fileName: fileName || null
+            fileUrl: finalFileUrl || null,
+            fileName: finalFileName || null,
+            fileType: finalFileType || null
         };
 
         chat.messages.push(newMessage);
-        chat.lastMessage = message.length > 50 ? message.substring(0, 50) + '...' : message;
+
+        // Update last message
+        if (req.file) {
+            chat.lastMessage = `[File] ${finalFileName}`;
+        } else {
+            chat.lastMessage = messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent;
+        }
+
         chat.lastMessageTime = new Date();
 
         // Update unread count
@@ -287,7 +360,7 @@ exports.sendMessage = async (req, res) => {
         await chat.save();
         console.log(`✅ Message saved to database - Chat: ${chat._id}`);
 
-        // Emit socket event jika tersedia
+        // Emit socket event jika tersedia - REAL TIME TANPA DELAY
         const io = req.app.get('io');
         if (io) {
             const messageData = {
@@ -297,17 +370,22 @@ exports.sendMessage = async (req, res) => {
                 message: newMessage.message,
                 sender: newMessage.sender,
                 timestamp: newMessage.timestamp,
-                read: newMessage.read
+                read: newMessage.read,
+                fileUrl: newMessage.fileUrl,
+                fileName: newMessage.fileName,
+                fileType: newMessage.fileType
             };
 
             console.log(`📨 Emitting socket event for ${newMessage.sender}`);
 
+            // Broadcast langsung tanpa delay
             if (newMessage.sender === 'user') {
                 io.to('admin_room').emit('new-message', messageData);
             } else {
                 io.to(`user_${chat.userId}`).emit('new-message', messageData);
             }
 
+            // Update chat list secara realtime
             io.to('admin_room').emit('chat-updated', {
                 action: 'new-message',
                 chatId: chat._id.toString(),
@@ -341,7 +419,40 @@ exports.sendMessage = async (req, res) => {
     }
 };
 
-// Update online status - FUNCTION YANG DITAMBAHKAN
+// Upload file saja
+exports.uploadFile = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tidak ada file yang diupload'
+            });
+        }
+
+        const fileUrl = `/uploads/chat/${req.file.filename}`;
+
+        res.status(200).json({
+            success: true,
+            message: 'File berhasil diupload',
+            data: {
+                fileUrl: fileUrl,
+                fileName: req.file.originalname,
+                fileType: req.file.mimetype,
+                fileSize: req.file.size
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error upload file:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Terjadi kesalahan server',
+            error: error.message
+        });
+    }
+};
+
+// Update online status
 exports.updateOnlineStatus = async (req, res) => {
     try {
         const {

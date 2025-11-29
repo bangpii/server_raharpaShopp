@@ -1,4 +1,4 @@
-// routes/chatRoutes.js - DIPERBAIKI
+// routes/chatRoutes.js - DITAMBAHKAN ROUTE UPLOAD
 const express = require('express');
 const router = express.Router();
 const chatController = require('../controllers/chatController');
@@ -19,9 +19,14 @@ router.get('/user/:userId', chatController.getOrCreateUserChat);
 router.get('/:chatId/messages', chatController.getChatMessages);
 
 // @route   POST /api/chat/:chatId/send/:userId
-// @desc    Send message
+// @desc    Send message dengan file upload
 // @access  Public
-router.post('/:chatId/send/:userId', chatController.sendMessage);
+router.post('/:chatId/send/:userId', chatController.upload.single('file'), chatController.sendMessage);
+
+// @route   POST /api/chat/upload
+// @desc    Upload file saja
+// @access  Public
+router.post('/upload', chatController.upload.single('file'), chatController.uploadFile);
 
 // @route   PUT /api/chat/status/:userId
 // @desc    Update online status
